@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { SUIT_INFO, SUITS, getAskableSets, rankSortValue } from "./gameLogic";
 import AskModal from "./AskModal";
 import DeclareModal from "./DeclareModal";
@@ -51,6 +51,21 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
           });
 
     const closePanel = () => setPanelMode(null);
+
+    // On phones/tablets the ask & call panel sits in the page flow below
+    // the table (so history stays reachable), so bring it into view when
+    // it opens. On desktop it's a fixed rail already on screen — leave the
+    // scroll position alone there.
+    const actionRef = useRef(null);
+    useEffect(() => {
+        if (
+            panelMode &&
+            actionRef.current &&
+            window.matchMedia("(max-width: 900px)").matches
+        ) {
+            actionRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    }, [panelMode]);
 
     const handleAskSubmit = (payload) => {
         dispatch({ type: "ASK", ...payload });
@@ -183,7 +198,11 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
             {(panelMode || state.showHistory) && (
                 <div className="fish-side-panel">
                     {panelMode && (
-                        <div key={panelMode} className="fish-side-panel-section fish-side-panel-action">
+                        <div
+                            key={panelMode}
+                            ref={actionRef}
+                            className="fish-side-panel-section fish-side-panel-action"
+                        >
                             <div className="fish-side-panel-head">
                                 <p>{PANEL_TITLES[panelMode]}</p>
                                 <button className="delete" aria-label="close" onClick={closePanel}></button>
