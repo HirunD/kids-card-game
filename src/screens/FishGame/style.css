@@ -736,14 +736,37 @@
     right: 1rem;
     bottom: 1rem;
     width: min(380px, calc(100vw - 2rem));
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 30;
+    color: var(--ink);
+}
+
+.fish-side-panel-section {
     background: linear-gradient(180deg, var(--parchment-1), var(--parchment-2));
     border-radius: 16px;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
-    z-index: 30;
+    min-height: 0;
+}
+
+/* The ask / call panel sits above history. It gets the room it needs but
+   never so much that history is pushed off screen — history stays visible
+   so you can read the table before you act. */
+.fish-side-panel-action {
+    flex: 0 1 auto;
     animation: fish-slide-in 0.22s ease;
-    color: var(--ink);
+}
+
+.fish-side-panel:has(.fish-side-panel-history) .fish-side-panel-action {
+    max-height: 55%;
+}
+
+.fish-side-panel-history {
+    flex: 1 1 auto;
+    animation: fish-slide-in 0.22s ease;
 }
 
 @keyframes fish-slide-in {

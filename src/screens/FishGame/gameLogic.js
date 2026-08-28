@@ -157,18 +157,14 @@ function resolveActingPlayer(players, hands, landedPlayerId) {
     if (!landed) return null;
     if (hands[landedPlayerId].length > 0) return landedPlayerId;
 
-    const n = players.length;
-    const startIdx = players.findIndex((p) => p.id === landedPlayerId);
-
-    for (let offset = 1; offset < n; offset++) {
-        const p = players[(startIdx + offset) % n];
-        if (p.teamId === landed.teamId && hands[p.id].length > 0) return p.id;
-    }
-    for (let offset = 1; offset < n; offset++) {
-        const p = players[(startIdx + offset) % n];
-        if (p.teamId !== landed.teamId && hands[p.id].length > 0) return p.id;
-    }
-    return null;
+    // The turn landed on a player who has run out of cards. They're done
+    // for the rest of the game — they can't ask, call, or do anything, they
+    // just watch. Hand the turn to a random player who still holds cards.
+    const stillPlaying = players.filter(
+        (p) => p.id !== landedPlayerId && hands[p.id].length > 0
+    );
+    if (stillPlaying.length === 0) return null;
+    return stillPlaying[Math.floor(Math.random() * stillPlaying.length)].id;
 }
 
 function isGameOver(sets) {
@@ -343,6 +339,14 @@ export function gameReducer(state, action) {
                 );
                 const landedId = realOwners[missingRank];
                 const acting = resolveActingPlayer(players, newHands, landedId);
+                turn = acting;
+                phase = "pass";
+                pendingRevealFor = acting;
+            } else if (newHands[declarerId].length === 0) {
+                // A correct call that cleared the declarer's last cards — they
+                // are out now, so the turn moves on to a random player who
+                // still holds cards.
+                const acting = resolveActingPlayer(state.players, newHands, declarerId);
                 turn = acting;
                 phase = "pass";
                 pendingRevealFor = acting;

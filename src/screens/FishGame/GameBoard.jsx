@@ -23,7 +23,9 @@ const PANEL_TITLES = {
 };
 
 const GameBoard = ({ state, dispatch, aiDialog }) => {
-    const [panelMode, setPanelMode] = useState(state.showHistory ? "history" : null);
+    // The history panel is always on screen when it's enabled; `panelMode`
+    // only tracks the extra ask / call panel stacked above it.
+    const [panelMode, setPanelMode] = useState(null);
 
     const currentPlayer = state.players.find((p) => p.id === state.turn);
     const isAITurn = currentPlayer.isAI;
@@ -48,7 +50,7 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
               return bySuit !== 0 ? bySuit : rankSortValue(a.rank) - rankSortValue(b.rank);
           });
 
-    const closePanel = () => setPanelMode(state.showHistory ? "history" : null);
+    const closePanel = () => setPanelMode(null);
 
     const handleAskSubmit = (payload) => {
         dispatch({ type: "ASK", ...payload });
@@ -178,31 +180,40 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
                 </div>
             </div>
 
-            {panelMode && (
-                <div key={panelMode} className="fish-side-panel">
-                    <div className="fish-side-panel-head">
-                        <p>{PANEL_TITLES[panelMode]}</p>
-                        {panelMode !== "history" && (
-                            <button className="delete" aria-label="close" onClick={closePanel}></button>
-                        )}
-                    </div>
-                    {panelMode === "ask" && (
-                        <AskModal
-                            state={state}
-                            currentPlayer={currentPlayer}
-                            onSubmit={handleAskSubmit}
-                            onClose={closePanel}
-                        />
+            {(panelMode || state.showHistory) && (
+                <div className="fish-side-panel">
+                    {panelMode && (
+                        <div key={panelMode} className="fish-side-panel-section fish-side-panel-action">
+                            <div className="fish-side-panel-head">
+                                <p>{PANEL_TITLES[panelMode]}</p>
+                                <button className="delete" aria-label="close" onClick={closePanel}></button>
+                            </div>
+                            {panelMode === "ask" && (
+                                <AskModal
+                                    state={state}
+                                    currentPlayer={currentPlayer}
+                                    onSubmit={handleAskSubmit}
+                                    onClose={closePanel}
+                                />
+                            )}
+                            {panelMode === "declare" && (
+                                <DeclareModal
+                                    state={state}
+                                    currentPlayer={currentPlayer}
+                                    onSubmit={handleDeclareSubmit}
+                                    onClose={closePanel}
+                                />
+                            )}
+                        </div>
                     )}
-                    {panelMode === "declare" && (
-                        <DeclareModal
-                            state={state}
-                            currentPlayer={currentPlayer}
-                            onSubmit={handleDeclareSubmit}
-                            onClose={closePanel}
-                        />
+                    {state.showHistory && (
+                        <div className="fish-side-panel-section fish-side-panel-history">
+                            <div className="fish-side-panel-head">
+                                <p>{PANEL_TITLES.history}</p>
+                            </div>
+                            <HistoryModal log={state.log} state={state} />
+                        </div>
                     )}
-                    {panelMode === "history" && <HistoryModal log={state.log} state={state} />}
                 </div>
             )}
 
