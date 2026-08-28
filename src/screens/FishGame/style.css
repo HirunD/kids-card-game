@@ -735,7 +735,7 @@
     top: 1rem;
     right: 1rem;
     bottom: 1rem;
-    width: min(380px, calc(100vw - 2rem));
+    width: min(360px, calc(100vw - 2rem));
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -750,6 +750,9 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    /* Keep each section's content inside its own rounded box — the ask/call
+       panel must never spill down over history. */
+    overflow: hidden;
 }
 
 /* The ask / call panel sits above history. It gets the room it needs but
@@ -789,10 +792,12 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     font-weight: 800;
     font-size: 1.05rem;
+    flex-shrink: 0;
 }
 
 .fish-side-panel-body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 1rem 1.1rem;
 }
@@ -802,6 +807,8 @@
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
     gap: 0.6rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 /* ---------- visual history ---------- */
@@ -926,14 +933,279 @@
 }
 
 /* ============================================================
+   Onboarding banner (setup screen)
+   ============================================================ */
+
+.fish-onboard {
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto 1rem;
+    text-align: center;
+    border: 2px solid var(--gold);
+    background: linear-gradient(180deg, #fff8e8, #ffedc4) !important;
+}
+
+/* The setup screen can now be taller than the viewport (onboarding banner,
+   8-player seat list) — let it scroll instead of clipping. */
+.fish-scene:has(.fish-setup-box) {
+    overflow-y: auto;
+}
+
+.fish-onboard .title {
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+}
+
+.fish-onboard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-top: 0.9rem;
+}
+
+.fish-text-link {
+    font-weight: 700;
+    color: var(--gold-dark);
+    text-decoration: underline;
+}
+
+.fish-text-link:hover {
+    color: var(--ink);
+}
+
+/* ============================================================
+   Rules page + tutorial (shared doc layout)
+   ============================================================ */
+
+.fish-doc-page {
+    overflow: visible;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem 3.5rem;
+    gap: 1rem;
+}
+
+.fish-doc {
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.9rem !important;
+}
+
+.fish-doc .title,
+.fish-doc .subtitle {
+    color: var(--ink);
+}
+
+.fish-doc h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 1.6rem 0 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.fish-doc p,
+.fish-doc li {
+    color: var(--ink);
+    line-height: 1.65;
+    margin-bottom: 0.5rem;
+}
+
+.fish-doc-lead {
+    font-size: 1.08rem;
+}
+
+.fish-doc ul {
+    list-style: disc;
+    padding-left: 1.4rem;
+    margin: 0.4rem 0 0.8rem;
+}
+
+.fish-doc a {
+    color: var(--gold-dark);
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.fish-doc-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    justify-content: center;
+    margin-top: 2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* ---------- tutorial stepper ---------- */
+
+.fish-tut {
+    max-width: 620px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.6rem !important;
+}
+
+.fish-tut .title {
+    color: var(--ink);
+}
+
+.fish-tut-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.fish-tut-count {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #6b5b3a;
+}
+
+.fish-tut-progress {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: center;
+    margin-bottom: 1.1rem;
+}
+
+.fish-tut-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.16);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.fish-tut-dot.is-done {
+    background: var(--gold);
+}
+
+.fish-tut-dot.is-active {
+    background: var(--gold-dark);
+    transform: scale(1.4);
+}
+
+.fish-tut-stage {
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    text-align: center;
+    padding: 0.75rem 0 1.1rem;
+    color: var(--ink);
+}
+
+.fish-tut-stage p {
+    margin: 0;
+}
+
+.fish-tut-demo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+}
+
+.fish-tut-demo .label {
+    margin: 0.2rem 0 0;
+    color: var(--ink);
+}
+
+.fish-tut-demo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.fish-tut-note {
+    background: rgba(224, 178, 86, 0.18);
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--ink);
+    max-width: 420px;
+}
+
+.fish-tut-feedback {
+    font-weight: 700;
+    max-width: 440px;
+}
+
+.fish-tut-feedback.is-good {
+    color: #1e6b3e;
+}
+
+.fish-tut-feedback.is-bad {
+    color: #8a2c1a;
+}
+
+.fish-set-chip-selected {
+    outline: 3px solid var(--gold-dark);
+    outline-offset: 2px;
+}
+
+.fish-tut-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+}
+
+/* ============================================================
    Responsive / mobile
    ============================================================ */
 
-/* Wide screens: the history rail is pinned to the right edge, so reserve
-   that strip and keep the board centred in what's left of the width. */
-@media (min-width: 901px) {
+/* Laptops: one fixed rail on the right. Ask/Call stacks above History
+   inside it; reserve that strip so the board never hides behind it. */
+@media (min-width: 901px) and (max-width: 1179px) {
     .fish-game-scene:has(.fish-side-panel) {
-        padding-right: calc(min(380px, 40vw) + 2rem);
+        padding-right: calc(360px + 2rem);
+    }
+}
+
+/* Roomy screens: 3-column layout — Ask/Call gets its own rail on the LEFT,
+   History stays on the right, the table sits between them. Much less
+   cramped than stacking both panels in one narrow column. */
+@media (min-width: 1180px) {
+    .fish-side-panel {
+        display: contents;
+    }
+
+    .fish-side-panel-section {
+        position: fixed;
+        top: 1rem;
+        bottom: 1rem;
+        width: min(360px, 28vw);
+        z-index: 30;
+    }
+
+    .fish-side-panel-history {
+        right: 1rem;
+    }
+
+    .fish-side-panel:has(.fish-side-panel-history) .fish-side-panel-action,
+    .fish-side-panel-action {
+        left: 1rem;
+        max-height: none;
+    }
+
+    .fish-game-scene:has(.fish-side-panel-history) {
+        padding-right: calc(min(360px, 28vw) + 2rem);
+    }
+
+    .fish-game-scene:has(.fish-side-panel-action) {
+        padding-left: calc(min(360px, 28vw) + 2rem);
     }
 }
 
@@ -980,6 +1252,27 @@
 @media (max-width: 600px) {
     .fish-game-scene .box.fish-panel {
         padding: 1rem;
+    }
+
+    .fish-doc-page {
+        padding: 1.5rem 0.75rem 2.5rem;
+    }
+
+    .fish-doc,
+    .fish-tut {
+        padding: 1.1rem !important;
+    }
+
+    .fish-doc h2 {
+        font-size: 1.15rem;
+    }
+
+    .fish-tut-nav {
+        flex-wrap: wrap;
+    }
+
+    .fish-tut-nav .fish-pill-button {
+        flex: 1 1 45%;
     }
 
     .fish-topbar {

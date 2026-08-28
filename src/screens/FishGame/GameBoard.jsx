@@ -30,7 +30,11 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
     const currentPlayer = state.players.find((p) => p.id === state.turn);
     const isAITurn = currentPlayer.isAI;
     const hand = state.hands[currentPlayer.id];
-    const askable = !isAITurn && getAskableSets(hand).length > 0;
+    const someOpponentHasCards = state.players.some(
+        (p) => p.teamId !== currentPlayer.teamId && state.hands[p.id].length > 0
+    );
+    const askable =
+        !isAITurn && getAskableSets(hand).length > 0 && someOpponentHasCards;
     const openSetsCount = Object.values(state.sets).filter((s) => s.status === "open").length;
     const teamClass = currentPlayer.teamId === 0 ? "is-red" : "is-blue";
 
@@ -159,9 +163,9 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
                             </div>
                             {!askable && (
                                 <p className="help fish-help">
-                                    No askable sets — every set you hold a card in is
-                                    already complete in your hand, or you hold none. You
-                                    can still call a set.
+                                    {someOpponentHasCards
+                                        ? "No askable sets — every set you hold a card in is already complete in your hand, or you hold none. You can still call a set."
+                                        : "No opponents have cards left to ask. Call a set to keep the game moving."}
                                 </p>
                             )}
                         </>

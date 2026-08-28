@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { Link } from "react-router";
 import { BOT_PERSONAS } from "./gameLogic";
+import { hasOnboarded, markOnboarded } from "./onboarding";
 
 const defaultIsAI = (n) => Array.from({ length: n }, (_, i) => i !== 0);
 
@@ -30,6 +32,13 @@ const Setup = ({ onStart, initialNumPlayers, initialNames, initialIsAI, initialS
     const [showHistory, setShowHistory] = useState(
         initialShowHistory !== undefined ? initialShowHistory : true
     );
+    // First time on this device? Offer the tutorial / rules up front.
+    const [showOnboard, setShowOnboard] = useState(() => !hasOnboarded());
+
+    const dismissOnboard = () => {
+        markOnboarded();
+        setShowOnboard(false);
+    };
 
     const handleNumPlayers = (n) => {
         const newIsAI = Array.from({ length: n }, (_, i) =>
@@ -60,6 +69,7 @@ const Setup = ({ onStart, initialNumPlayers, initialNames, initialIsAI, initialS
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        markOnboarded();
         onStart({ names, numPlayers, isAI, showHistory });
     };
 
@@ -91,10 +101,50 @@ const Setup = ({ onStart, initialNumPlayers, initialNames, initialIsAI, initialS
                 <p className="fish-title-deco has-text-centered has-text-white">
                     ♠ ♥ ♦ ♣
                 </p>
+
+                {showOnboard && (
+                    <div className="box fish-panel fish-onboard">
+                        <p className="title is-5">👋 New to Fish?</p>
+                        <p>Take a one-minute tutorial, or read the full rules first.</p>
+                        <div className="fish-onboard-actions">
+                            <Link
+                                to="/how-to-play"
+                                className="button is-link fish-pill-button"
+                                onClick={markOnboarded}
+                            >
+                                ▶ Play the tutorial
+                            </Link>
+                            <Link
+                                to="/rules"
+                                className="button fish-pill-button"
+                                onClick={markOnboarded}
+                            >
+                                📖 Read the rules
+                            </Link>
+                            <button
+                                type="button"
+                                className="button is-ghost fish-pill-button"
+                                onClick={dismissOnboard}
+                            >
+                                Skip — I know how
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="box fish-panel fish-setup-box">
                     <p className="title is-3 has-text-centered">🎴 Fish</p>
                     <p className="subtitle is-6 has-text-centered">
                         Literature / 7-up — 32 card, team card game
+                    </p>
+                    <p className="has-text-centered mb-4">
+                        <Link to="/rules" className="fish-text-link">
+                            📖 How to play
+                        </Link>
+                        <span className="mx-2">·</span>
+                        <Link to="/how-to-play" className="fish-text-link">
+                            ▶ Tutorial
+                        </Link>
                     </p>
 
                     <form onSubmit={handleSubmit}>

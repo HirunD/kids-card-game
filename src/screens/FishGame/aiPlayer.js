@@ -65,7 +65,37 @@ export function decideAIMove(state, aiId) {
 
     const hand = state.hands[aiId];
     const askableSetIds = getAskableSets(hand);
-    if (askableSetIds.length === 0) return null;
+    const opponentsWithCards = state.players.filter(
+        (p) => p.teamId !== myTeam && state.hands[p.id].length > 0
+    );
+
+    // No legal ask available — the AI holds only completed sets, or there's
+    // nobody left on the other team to ask. It has to declare something,
+    // otherwise its turn never ends and the game freezes. Pick the open set
+    // that looks least risky: fewest cards known to be with the opponents,
+    // then most known to be with us, then highest value.
+    if (askableSetIds.length === 0 || opponentsWithCards.length === 0) {
+        if (openSets.length === 0) return null;
+        const ranked = openSets
+            .map((set) => {
+                let knownOpp = 0;
+                let knownMine = 0;
+                for (const rank of set.ranks) {
+                    const owner = knowledge.knownOwner[cardId(set.suit, rank)];
+                    if (!owner) continue;
+                    if (playerTeam(state, owner) === myTeam) knownMine += 1;
+                    else knownOpp += 1;
+                }
+                return { set, knownOpp, knownMine };
+            })
+            .sort(
+                (a, b) =>
+                    a.knownOpp - b.knownOpp ||
+                    b.knownMine - a.knownMine ||
+                    b.set.points - a.set.points
+            );
+        return { type: "DECLARE", declarerId: aiId, setId: ranked[0].set.id };
+    }
 
     let definiteOption = null;
     const fuzzyOptions = [];
@@ -100,11 +130,7 @@ export function decideAIMove(state, aiId) {
         const set = state.sets[setId];
         const missing = getMissingRanks(hand, set);
         const rank = pickRandom(missing);
-        const opponents = state.players.filter(
-            (p) => p.teamId !== myTeam && state.hands[p.id].length > 0
-        );
-        if (opponents.length === 0) return null;
-        chosen = { suit: set.suit, rank, targetId: pickRandom(opponents).id };
+        chosen = { suit: set.suit, rank, targetId: pickRandom(opponentsWithCards).id };
     }
 
     return {
