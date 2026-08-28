@@ -1,0 +1,214 @@
+import React, { useState } from "react";
+import { SUIT_INFO, SUITS, getAskableSets, rankSortValue } from "./gameLogic";
+import AskModal from "./AskModal";
+import DeclareModal from "./DeclareModal";
+import HistoryModal from "./HistoryModal";
+import AIActionDialog from "./AIActionDialog";
+
+function seatPosition(i, total) {
+    const step = 200 / (total + 1);
+    const angleDeg = 170 + step * (i + 1);
+    const rad = (angleDeg * Math.PI) / 180;
+    const rx = 46;
+    const ry = 42;
+    const left = 50 + rx * Math.cos(rad);
+    const top = 50 + ry * Math.sin(rad);
+    return { left: `${left}%`, top: `${top}%` };
+}
+
+const PANEL_TITLES = {
+    ask: "🗣️ Ask for a card",
+    declare: "📣 Call a set",
+    history: "📜 History",
+};
+
+const GameBoard = ({ state, dispatch, aiDialog }) => {
+    const [panelMode, setPanelMode] = useState(state.showHistory ? "history" : null);
+
+    const currentPlayer = state.players.find((p) => p.id === state.turn);
+    const isAITurn = currentPlayer.isAI;
+    const hand = state.hands[currentPlayer.id];
+    const askable = !isAITurn && getAskableSets(hand).length > 0;
+    const openSetsCount = Object.values(state.sets).filter((s) => s.status === "open").length;
+    const teamClass = currentPlayer.teamId === 0 ? "is-red" : "is-blue";
+
+    const others = state.players
+        .filter((p) => p.id !== currentPlayer.id)
+        .sort((a, b) => {
+            const n = state.players.length;
+            const relA = (a.seat - currentPlayer.seat + n) % n;
+            const relB = (b.seat - currentPlayer.seat + n) % n;
+            return relA - relB;
+        });
+
+    const sortedHand = isAITurn
+        ? []
+        : [...hand].sort((a, b) => {
+              const bySuit = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+              return bySuit !== 0 ? bySuit : rankSortValue(a.rank) - rankSortValue(b.rank);
+          });
+
+    const closePanel = () => setPanelMode(state.showHistory ? "history" : null);
+
+    const handleAskSubmit = (payload) => {
+        dispatch({ type: "ASK", ...payload });
+        closePanel();
+    };
+
+    const handleDeclareSubmit = (payload) => {
+        dispatch({ type: "DECLARE", ...payload });
+        closePanel();
+    };
+
+    return (
+        <section className="hero is-fullheight fish-scene fish-game-scene">
+            <div className="fish-topbar">
+                <span className="fish-score-pill is-red">🔴 {state.teamNames[0]} {state.scores[0]}</span>
+                <span className="fish-score-pill is-blue">🔵 {state.teamNames[1]} {state.scores[1]}</span>
+            </div>
+
+            <div className="fish-table-area">
+                <div className="fish-table-oval">
+                    <span className="fish-table-watermark">🐟</span>
+                    {others.map((p, i) => (
+                        <div
+                            key={p.id}
+                            className={`fish-seat-avatar ${p.teamId === 0 ? "is-red" : "is-blue"}`}
+                            style={seatPosition(i, others.length)}
+                        >
+                            <div className="fish-seat-avatar-circle">
+                                {p.icon}
+                                <span className="fish-seat-avatar-count">{state.hands[p.id].length}</span>
+                            </div>
+                            <span className="fish-seat-avatar-name">{p.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="fish-hand-dock">
+                <div className="box fish-panel">
+                    <span className={`fish-turn-chip ${teamClass}`}>
+                        {currentPlayer.icon} {currentPlayer.name}'s turn
+                        &nbsp;·&nbsp;{state.teamNames[currentPlayer.teamId]}
+                    </span>
+
+                    {isAITurn ? (
+                        <div className="fish-thinking">
+                            <span className="fish-thinking-spinner" aria-hidden="true">{currentPlayer.icon}</span>
+                            <p>{currentPlayer.name} is thinking...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="fish-hand-fan">
+                                {sortedHand.map((c, i) => {
+                                    const mid = (sortedHand.length - 1) / 2;
+                                    const offset = i - mid;
+                                    const rotate = offset * 6;
+                                    const lift = Math.abs(offset) * 3;
+                                    return (
+                                        <span
+                                            key={c.id}
+                                            className={`fish-card fish-suit-${SUIT_INFO[c.suit].color}`}
+                                            style={{
+                                                transform: `rotate(${rotate}deg) translateY(${lift}px)`,
+                                                zIndex: i,
+                                            }}
+                                        >
+                                            <span>{c.rank}</span>
+                                            <span className="fish-card-suit">
+                                                {SUIT_INFO[c.suit].symbol}
+                                            </span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="fish-actions">
+                                <button
+                                    className="button is-primary fish-pill-button"
+                                    disabled={!askable}
+                                    onClick={() => setPanelMode("ask")}
+                                >
+                                    🗣️ Ask for a card
+                                </button>
+                                <button
+                                    className="button is-danger fish-pill-button"
+                                    disabled={openSetsCount === 0}
+                                    onClick={() => setPanelMode("declare")}
+                                >
+                                    📣 Call a set!
+                                </button>
+                            </div>
+                            {!askable && (
+                                <p className="help fish-help">
+                                    No askable sets — every set you hold a card in is
+                                    already complete in your hand, or you hold none. You
+                                    can still call a set.
+                                </p>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="fish-bottom-strip">
+                <div className="box fish-panel">
+                    <p className="label">Sets</p>
+                    <div className="fish-set-grid">
+                        {Object.values(state.sets).map((s) => (
+                            <span
+                                key={s.id}
+                                className={`fish-set-chip ${
+                                    s.status === "open"
+                                        ? "is-open"
+                                        : s.owner === 0
+                                        ? "is-red"
+                                        : "is-blue"
+                                }`}
+                                title={`${s.level} ${SUIT_INFO[s.suit].name}`}
+                            >
+                                <span className={s.status === "open" ? "" : `fish-suit-${SUIT_INFO[s.suit].color}`}>
+                                    {SUIT_INFO[s.suit].symbol}
+                                </span>
+                                <span>{s.level === "low" ? "Low" : "High"}</span>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {panelMode && (
+                <div key={panelMode} className="fish-side-panel">
+                    <div className="fish-side-panel-head">
+                        <p>{PANEL_TITLES[panelMode]}</p>
+                        {panelMode !== "history" && (
+                            <button className="delete" aria-label="close" onClick={closePanel}></button>
+                        )}
+                    </div>
+                    {panelMode === "ask" && (
+                        <AskModal
+                            state={state}
+                            currentPlayer={currentPlayer}
+                            onSubmit={handleAskSubmit}
+                            onClose={closePanel}
+                        />
+                    )}
+                    {panelMode === "declare" && (
+                        <DeclareModal
+                            state={state}
+                            currentPlayer={currentPlayer}
+                            onSubmit={handleDeclareSubmit}
+                            onClose={closePanel}
+                        />
+                    )}
+                    {panelMode === "history" && <HistoryModal log={state.log} state={state} />}
+                </div>
+            )}
+
+            <AIActionDialog aiDialog={aiDialog} state={state} />
+        </section>
+    );
+};
+
+export default GameBoard;
