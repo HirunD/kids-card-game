@@ -58,12 +58,16 @@ const GameOver = ({ state, onPlayAgain }) => {
                         </div>
                     </div>
 
-                    <button
-                        className="button is-primary is-medium fish-pill-button mt-5"
-                        onClick={onPlayAgain}
-                    >
-                        🔁 Play again
-                    </button>
+                    {onPlayAgain ? (
+                        <button
+                            className="button is-primary is-medium fish-pill-button mt-5"
+                            onClick={onPlayAgain}
+                        >
+                            🔁 Play again
+                        </button>
+                    ) : (
+                        <p className="has-text-grey mt-5">Waiting for the host to start a new game…</p>
+                    )}
                 </div>
             </div>
         </section>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router";
 import { BOT_PERSONAS } from "./gameLogic";
 import { hasOnboarded, markOnboarded } from "./onboarding";
+import { firebaseReady } from "../../firebase";
 
 const defaultIsAI = (n) => Array.from({ length: n }, (_, i) => i !== 0);
 
@@ -17,7 +18,7 @@ const defaultNames = (n, aiArr) => {
     });
 };
 
-const Setup = ({ onStart, initialNumPlayers, initialNames, initialIsAI, initialShowHistory }) => {
+const Setup = ({ onStart, onGoOnline, initialNumPlayers, initialNames, initialIsAI, initialShowHistory }) => {
     const [numPlayers, setNumPlayers] = useState(initialNumPlayers || 4);
     const [isAI, setIsAI] = useState(
         initialIsAI && initialIsAI.length === (initialNumPlayers || 4)
@@ -146,6 +147,27 @@ const Setup = ({ onStart, initialNumPlayers, initialNames, initialIsAI, initialS
                             ▶ Tutorial
                         </Link>
                     </p>
+
+                    {onGoOnline && (
+                        <div className="field has-text-centered">
+                            <button
+                                type="button"
+                                className="button is-link is-light fish-pill-button"
+                                onClick={onGoOnline}
+                                disabled={!firebaseReady}
+                                title={
+                                    firebaseReady
+                                        ? "Play with a friend on another device"
+                                        : "Online play isn't configured on this site"
+                                }
+                            >
+                                🌐 Play online with a friend
+                            </button>
+                            {!firebaseReady && (
+                                <p className="help">Online play isn't set up on this site yet.</p>
+                            )}
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit}>
                         <div className="field">

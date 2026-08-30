@@ -7,6 +7,7 @@ import {
     getMissingRanks,
     rankSortValue,
     cardId,
+    handCount,
 } from "./gameLogic";
 
 const AskModal = ({ state, currentPlayer, onSubmit, onClose }) => {
@@ -27,7 +28,7 @@ const AskModal = ({ state, currentPlayer, onSubmit, onClose }) => {
     const missingRanks = set ? getMissingRanks(hand, set) : [];
 
     const opponents = state.players.filter(
-        (p) => p.teamId !== currentPlayer.teamId && state.hands[p.id].length > 0
+        (p) => p.teamId !== currentPlayer.teamId && handCount(state, p.id) > 0
     );
 
     const selectSet = (id) => {
@@ -110,7 +111,7 @@ const AskModal = ({ state, currentPlayer, onSubmit, onClose }) => {
                                             <span className="fish-avatar-option-circle">
                                                 {p.icon}
                                                 <span className="fish-seat-avatar-count">
-                                                    {state.hands[p.id].length}
+                                                    {handCount(state, p.id)}
                                                 </span>
                                             </span>
                                             <span>{p.name}</span>

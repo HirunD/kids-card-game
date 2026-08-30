@@ -144,6 +144,17 @@ export function getMissingRanks(hand, set) {
     return set.ranks.filter((r) => !heldRanks.includes(r));
 }
 
+// Online guests get a redacted state where other hands are blanked to []
+// but a `handCounts` map is kept. Everything that only needs "how many
+// cards does seat X hold" should read this instead of hand.length.
+export function handCount(state, playerId) {
+    if (state.handCounts && state.handCounts[playerId] !== undefined) {
+        return state.handCounts[playerId];
+    }
+    const hand = state.hands[playerId];
+    return hand ? hand.length : 0;
+}
+
 export function findOwner(hands, suit, rank) {
     const id = cardId(suit, rank);
     for (const [playerId, hand] of Object.entries(hands)) {
@@ -222,6 +233,12 @@ export function gameReducer(state, action) {
 
         case "REVEAL": {
             return { ...state, phase: "play" };
+        }
+
+        // Re-seed the reducer from an externally stored state (used when an
+        // online host refreshes mid-game and rehydrates from the server).
+        case "HYDRATE": {
+            return action.state;
         }
 
         case "ASK": {

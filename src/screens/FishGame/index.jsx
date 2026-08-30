@@ -1,11 +1,19 @@
 import React, { useReducer, useEffect, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
-import { gameReducer, createInitialState, findOwner, playerTeam } from "./gameLogic";
+import {
+    gameReducer,
+    createInitialState,
+    findOwner,
+    playerTeam,
+    BOT_PERSONAS,
+} from "./gameLogic";
 import { decideAIMove } from "./aiPlayer";
 import Setup from "./Setup";
+import OnlineSetup from "./OnlineSetup";
 import PassDevice from "./PassDevice";
 import GameBoard from "./GameBoard";
 import GameOver from "./GameOver";
+import { useOnlineRoom } from "./net/useOnlineRoom";
 import "./style.css";
 
 const VARIANT_BY_TYPE = {
@@ -20,6 +28,15 @@ const ASK_RESULT_HOLD = 1300;
 const DECLARE_REVEAL_DELAY = 1700;
 const DECLARE_RESULT_HOLD = 1600;
 
+const Dealing = () => (
+    <section className="hero is-fullheight fish-scene">
+        <div className="hero-body is-flex-direction-column is-justify-content-center has-text-centered">
+            <p className="fish-thinking-spinner" aria-hidden="true">🎴</p>
+            <p className="has-text-white">Dealing…</p>
+        </div>
+    </section>
+);
+
 const FishGame = () => {
     const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
     const { enqueueSnackbar } = useSnackbar();
@@ -28,28 +45,42 @@ const FishGame = () => {
     const [aiDialog, setAiDialog] = useState(null);
     const lastHumanRef = useRef(null);
     const stateRef = useRef(state);
+
+    const online = useOnlineRoom();
+    // Pulled out so the host effects below can depend on stable identities
+    // rather than the whole (re-created every render) `online` object.
+    const { pushState: pushOnlineState, onRemoteActions, seats: onlineSeats } = online;
+    const [onlineMode, setOnlineMode] = useState(false);
+    const isOnline = onlineMode || Boolean(online.code);
+    const isHost = isOnline && online.role === "host";
+    const isGuest = isOnline && online.role === "guest";
+
+    // What we actually render: host & offline read the local reducer; a
+    // guest reads whatever the host has published for their seat.
+    const gameState = isGuest ? online.remoteState : state;
+
     useEffect(() => {
         stateRef.current = state;
     }, [state]);
 
+    // ---- toast the newest move-log entry (local or synced) ----
     useEffect(() => {
-        if (state.log.length > lastLogLength.current) {
-            const entry = state.log[state.log.length - 1];
+        const log = gameState?.log;
+        if (!log) return;
+        if (log.length > lastLogLength.current) {
+            const entry = log[log.length - 1];
             if (entry.type !== "info" || lastLogLength.current > 0) {
                 enqueueSnackbar(entry.text, {
                     variant: VARIANT_BY_TYPE[entry.type] || "default",
                 });
             }
         }
-        lastLogLength.current = state.log.length;
-    }, [state.log, enqueueSnackbar]);
+        lastLogLength.current = log.length;
+    }, [gameState?.log, enqueueSnackbar]);
 
-    // A "pass the device" hand-off is only meaningful when the device is
-    // actually changing hands between two different humans. A computer
-    // seat has nothing to hide, and if the very same human already had the
-    // device (it just sat through some AI turns), there's nobody to pass
-    // to — skip straight to their turn in both cases.
+    // ---- offline "pass the device" hand-off (local play only) ----
     useEffect(() => {
+        if (isOnline) return;
         if (state.phase !== "pass") return;
         const player = state.players.find((p) => p.id === state.pendingRevealFor);
         if (!player) return;
@@ -57,14 +88,19 @@ const FishGame = () => {
         if (player.isAI || sameHolder) {
             dispatch({ type: "REVEAL" });
         }
-    }, [state.phase, state.pendingRevealFor, state.players]);
+    }, [isOnline, state.phase, state.pendingRevealFor, state.players]);
 
-    // When it's a computer seat's turn: think briefly, show a visual dialog
-    // of the question/call it's making, then reveal the outcome in that
-    // same dialog before acting on the game state. Re-fires whenever the
-    // log grows (the AI got a card and goes again) or the turn moves to
-    // another AI seat.
+    // ---- online host: there's no device to pass, so reveal straight away.
+    // Hidden hands are enforced by the per-seat redacted views instead. ----
     useEffect(() => {
+        if (!isHost) return;
+        if (state.phase === "pass") dispatch({ type: "REVEAL" });
+    }, [isHost, state.phase]);
+
+    // ---- AI seats: think, show the move, then act. Runs on the host (and
+    // in local play); a guest never drives the AI. ----
+    useEffect(() => {
+        if (isGuest) return;
         if (state.phase !== "play") return;
         const player = state.players.find((p) => p.id === state.turn);
         if (!player || !player.isAI) return;
@@ -113,16 +149,10 @@ const FishGame = () => {
             }
         }, THINK_DELAY);
 
-        // These timers only ever cover work this exact effect instance
-        // scheduled (thinking + reveal); clearing already-fired ones is a
-        // harmless no-op, so this can't clip a result that's already on
-        // screen — that's handled by the separate auto-close effect below.
         return () => timers.forEach(clearTimeout);
-    }, [state.phase, state.turn, state.log.length, state.players]);
+    }, [isGuest, state.phase, state.turn, state.log.length, state.players]);
 
-    // Auto-close the result side of the AI dialog after a beat. Kept as
-    // its own effect (keyed only on aiDialog, not on game state) so a
-    // dispatch from the effect above can't race this timer away.
+    // Auto-close the result side of the AI dialog after a beat.
     useEffect(() => {
         if (!aiDialog || aiDialog.phase !== "result") return;
         const hold = aiDialog.kind === "declare" ? DECLARE_RESULT_HOLD : ASK_RESULT_HOLD;
@@ -130,24 +160,123 @@ const FishGame = () => {
         return () => clearTimeout(id);
     }, [aiDialog]);
 
+    // ---- online host: mirror authoritative state + a redacted view per seat ----
+    useEffect(() => {
+        if (!isHost || state.phase === "setup") return;
+        pushOnlineState(state, Object.keys(onlineSeats || {}));
+    }, [isHost, state, onlineSeats, pushOnlineState]);
+
+    // ---- online host: apply moves queued by guests ----
+    useEffect(() => {
+        if (!isHost) return undefined;
+        return onRemoteActions((action) => {
+            const actorSeat = action.askerId || action.declarerId;
+            if (actorSeat) {
+                const seat = onlineSeats?.[actorSeat];
+                // sender must own the acting seat, and it must be that seat's turn
+                if (seat && action.by && seat.clientId !== action.by) return;
+                if (stateRef.current.turn && actorSeat !== stateRef.current.turn) return;
+            }
+            dispatch(action);
+        });
+    }, [isHost, onRemoteActions, onlineSeats]);
+
+    // ---- online host: recover from a mid-game refresh ----
+    const hydratedRef = useRef(false);
+    useEffect(() => {
+        if (!isHost || hydratedRef.current) return;
+        const rs = online.remoteState;
+        if (state.phase === "setup" && rs && rs.phase && rs.phase !== "setup") {
+            hydratedRef.current = true;
+            lastLogLength.current = rs.log ? rs.log.length : 0;
+            dispatch({ type: "HYDRATE", state: rs });
+        }
+    }, [isHost, online.remoteState, state.phase]);
+
     const handleStart = ({ names, numPlayers, isAI, showHistory }) => {
         setLastSetup({ names, numPlayers, isAI, showHistory });
-        // Whoever set up the game is already holding the device — assume
-        // that's the first human seat, so their first turn never shows a
-        // redundant pass screen.
         const firstHumanIdx = isAI.findIndex((v) => !v);
         lastHumanRef.current = firstHumanIdx >= 0 ? `p${firstHumanIdx}` : null;
         dispatch({ type: "START_GAME", names, numPlayers, isAI, showHistory });
     };
 
+    const handleStartOnline = () => {
+        const { numPlayers, isAI, showHistory } = online.meta;
+        let aiCount = 0;
+        const names = Array.from({ length: numPlayers }, (_, i) => {
+            if (isAI[i]) {
+                const persona = BOT_PERSONAS[aiCount % BOT_PERSONAS.length].name;
+                aiCount += 1;
+                return persona;
+            }
+            return online.seats?.[`p${i}`]?.name || `Player ${i + 1}`;
+        });
+        lastLogLength.current = 0;
+        dispatch({ type: "START_GAME", names, numPlayers, isAI, showHistory });
+        online.setStatusPlaying();
+    };
+
     const handleRestart = () => {
+        if (isOnline) {
+            if (isHost) {
+                hydratedRef.current = false;
+                lastLogLength.current = 0;
+                dispatch({ type: "RESTART" });
+                online.resetToLobby();
+            }
+            return;
+        }
         dispatch({ type: "RESTART" });
     };
 
+    const exitOnline = () => {
+        online.leaveRoom();
+        setOnlineMode(false);
+        hydratedRef.current = false;
+        lastLogLength.current = 0;
+        dispatch({ type: "RESTART" });
+    };
+
+    const activePlayer = (gameState?.players || []).find((p) => p.id === gameState?.turn);
+    const effectiveAiDialog = !isGuest && activePlayer?.isAI ? aiDialog : null;
+
+    // ------------------------- online -------------------------
+    if (isOnline) {
+        const showLobby = isHost
+            ? state.phase === "setup"
+            : !online.meta || online.meta.status === "lobby" || online.roomMissing;
+
+        if (showLobby) {
+            return (
+                <OnlineSetup online={online} onExit={exitOnline} onDeal={handleStartOnline} />
+            );
+        }
+
+        const gs = gameState;
+        if (!gs || gs.phase === "setup" || gs.phase === "pass") {
+            return <Dealing />;
+        }
+        if (gs.phase === "gameover") {
+            return (
+                <GameOver state={gs} onPlayAgain={isHost ? handleRestart : undefined} />
+            );
+        }
+        return (
+            <GameBoard
+                state={gs}
+                dispatch={isHost ? dispatch : online.sendAction}
+                aiDialog={effectiveAiDialog}
+                viewerId={online.mySeatId}
+            />
+        );
+    }
+
+    // ------------------------- local (pass-and-play) -------------------------
     if (state.phase === "setup") {
         return (
             <Setup
                 onStart={handleStart}
+                onGoOnline={() => setOnlineMode(true)}
                 initialNumPlayers={lastSetup?.numPlayers}
                 initialNames={lastSetup?.names}
                 initialIsAI={lastSetup?.isAI}
@@ -176,11 +305,6 @@ const FishGame = () => {
     if (state.phase === "gameover") {
         return <GameOver state={state} onPlayAgain={handleRestart} />;
     }
-
-    // Don't let a stale AI dialog sit on top of a human's turn — only show
-    // it while the player currently acting is actually the computer.
-    const activePlayer = state.players.find((p) => p.id === state.turn);
-    const effectiveAiDialog = activePlayer?.isAI ? aiDialog : null;
 
     return <GameBoard state={state} dispatch={dispatch} aiDialog={effectiveAiDialog} />;
 };

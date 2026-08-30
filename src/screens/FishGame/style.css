@@ -1406,3 +1406,105 @@
         max-width: 100%;
     }
 }
+
+/* ---------- online play ---------- */
+
+.fish-waiting-note {
+    text-align: center;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.fish-online-seat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+.fish-online-seat-grid .fish-seat-toggle {
+    width: 100%;
+}
+
+.fish-code-input {
+    text-transform: uppercase;
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-weight: 800;
+    font-size: 1.4rem;
+}
+
+.fish-code-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin-bottom: 0.4rem;
+}
+
+.fish-code-value {
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 0.35em;
+    padding: 0.2rem 0.4rem 0.2rem 0.75rem;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.06);
+    border: 2px dashed var(--gold-dark);
+    color: var(--ink);
+}
+
+.fish-lobby-seat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    border-left: 4px solid transparent;
+    min-height: 2.9rem;
+}
+
+.fish-lobby-seat.is-red {
+    border-left-color: #c0392b;
+}
+
+.fish-lobby-seat.is-blue {
+    border-left-color: #2b6cb0;
+}
+
+.fish-lobby-seat.is-mine {
+    background: rgba(224, 178, 86, 0.22);
+}
+
+.fish-lobby-seat-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+}
+
+.fish-lobby-seat-name {
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.fish-lobby-you {
+    font-weight: 600;
+    color: var(--gold-dark);
+}
+
+.fish-lobby-seat-open {
+    color: rgba(0, 0, 0, 0.4);
+    font-style: italic;
+}
+
+.fish-online-error {
+    max-width: 480px;
+    width: 100%;
+    margin: 0 auto 1rem;
+    text-align: center;
+    color: #8a1c1c;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+}

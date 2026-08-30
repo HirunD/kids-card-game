@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { SUIT_INFO, SUITS, getAskableSets, rankSortValue } from "./gameLogic";
+import { SUIT_INFO, SUITS, getAskableSets, rankSortValue, handCount } from "./gameLogic";
 import AskModal from "./AskModal";
 import DeclareModal from "./DeclareModal";
 import HistoryModal from "./HistoryModal";
@@ -22,39 +22,10 @@ const PANEL_TITLES = {
     history: "📜 History",
 };
 
-const GameBoard = ({ state, dispatch, aiDialog }) => {
+const GameBoard = ({ state, dispatch, aiDialog, viewerId }) => {
     // The history panel is always on screen when it's enabled; `panelMode`
     // only tracks the extra ask / call panel stacked above it.
     const [panelMode, setPanelMode] = useState(null);
-
-    const currentPlayer = state.players.find((p) => p.id === state.turn);
-    const isAITurn = currentPlayer.isAI;
-    const hand = state.hands[currentPlayer.id];
-    const someOpponentHasCards = state.players.some(
-        (p) => p.teamId !== currentPlayer.teamId && state.hands[p.id].length > 0
-    );
-    const askable =
-        !isAITurn && getAskableSets(hand).length > 0 && someOpponentHasCards;
-    const openSetsCount = Object.values(state.sets).filter((s) => s.status === "open").length;
-    const teamClass = currentPlayer.teamId === 0 ? "is-red" : "is-blue";
-
-    const others = state.players
-        .filter((p) => p.id !== currentPlayer.id)
-        .sort((a, b) => {
-            const n = state.players.length;
-            const relA = (a.seat - currentPlayer.seat + n) % n;
-            const relB = (b.seat - currentPlayer.seat + n) % n;
-            return relA - relB;
-        });
-
-    const sortedHand = isAITurn
-        ? []
-        : [...hand].sort((a, b) => {
-              const bySuit = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-              return bySuit !== 0 ? bySuit : rankSortValue(a.rank) - rankSortValue(b.rank);
-          });
-
-    const closePanel = () => setPanelMode(null);
 
     // On phones/tablets the ask & call panel sits in the page flow below
     // the table (so history stays reachable), so bring it into view when
@@ -70,6 +41,46 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
             actionRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
     }, [panelMode]);
+
+    const currentPlayer = state.players.find((p) => p.id === state.turn);
+
+    // `viewer` is the seat this screen belongs to. Offline (pass-and-play)
+    // there's no viewerId, so it's whoever's turn it is. Online it's my
+    // fixed seat, and it stays put while other people take their turns.
+    const viewer = state.players.find((p) => p.id === viewerId) || currentPlayer;
+
+    if (!currentPlayer || !viewer) return null;
+
+    const isAITurn = currentPlayer.isAI;
+    const showMyHand = !viewer.isAI;
+    const myTurn = viewer.id === currentPlayer.id && !isAITurn;
+
+    const hand = state.hands[viewer.id] || [];
+    const someOpponentHasCards = state.players.some(
+        (p) => p.teamId !== viewer.teamId && handCount(state, p.id) > 0
+    );
+    const askable =
+        myTurn && getAskableSets(hand).length > 0 && someOpponentHasCards;
+    const openSetsCount = Object.values(state.sets).filter((s) => s.status === "open").length;
+    const teamClass = currentPlayer.teamId === 0 ? "is-red" : "is-blue";
+
+    const others = state.players
+        .filter((p) => p.id !== viewer.id)
+        .sort((a, b) => {
+            const n = state.players.length;
+            const relA = (a.seat - viewer.seat + n) % n;
+            const relB = (b.seat - viewer.seat + n) % n;
+            return relA - relB;
+        });
+
+    const sortedHand = !showMyHand
+        ? []
+        : [...hand].sort((a, b) => {
+              const bySuit = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+              return bySuit !== 0 ? bySuit : rankSortValue(a.rank) - rankSortValue(b.rank);
+          });
+
+    const closePanel = () => setPanelMode(null);
 
     const handleAskSubmit = (payload) => {
         dispatch({ type: "ASK", ...payload });
@@ -99,7 +110,7 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
                         >
                             <div className="fish-seat-avatar-circle">
                                 {p.icon}
-                                <span className="fish-seat-avatar-count">{state.hands[p.id].length}</span>
+                                <span className="fish-seat-avatar-count">{handCount(state, p.id)}</span>
                             </div>
                             <span className="fish-seat-avatar-name">{p.name}</span>
                         </div>
@@ -114,7 +125,7 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
                         &nbsp;·&nbsp;{state.teamNames[currentPlayer.teamId]}
                     </span>
 
-                    {isAITurn ? (
+                    {!showMyHand ? (
                         <div className="fish-thinking">
                             <span className="fish-thinking-spinner" aria-hidden="true">{currentPlayer.icon}</span>
                             <p>{currentPlayer.name} is thinking...</p>
@@ -145,27 +156,37 @@ const GameBoard = ({ state, dispatch, aiDialog }) => {
                                 })}
                             </div>
 
-                            <div className="fish-actions">
-                                <button
-                                    className="button is-primary fish-pill-button"
-                                    disabled={!askable}
-                                    onClick={() => setPanelMode("ask")}
-                                >
-                                    🗣️ Ask for a card
-                                </button>
-                                <button
-                                    className="button is-danger fish-pill-button"
-                                    disabled={openSetsCount === 0}
-                                    onClick={() => setPanelMode("declare")}
-                                >
-                                    📣 Call a set!
-                                </button>
-                            </div>
-                            {!askable && (
-                                <p className="help fish-help">
-                                    {someOpponentHasCards
-                                        ? "No askable sets — every set you hold a card in is already complete in your hand, or you hold none. You can still call a set."
-                                        : "No opponents have cards left to ask. Call a set to keep the game moving."}
+                            {myTurn ? (
+                                <>
+                                    <div className="fish-actions">
+                                        <button
+                                            className="button is-primary fish-pill-button"
+                                            disabled={!askable}
+                                            onClick={() => setPanelMode("ask")}
+                                        >
+                                            🗣️ Ask for a card
+                                        </button>
+                                        <button
+                                            className="button is-danger fish-pill-button"
+                                            disabled={openSetsCount === 0}
+                                            onClick={() => setPanelMode("declare")}
+                                        >
+                                            📣 Call a set!
+                                        </button>
+                                    </div>
+                                    {!askable && (
+                                        <p className="help fish-help">
+                                            {someOpponentHasCards
+                                                ? "No askable sets — every set you hold a card in is already complete in your hand, or you hold none. You can still call a set."
+                                                : "No opponents have cards left to ask. Call a set to keep the game moving."}
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="help fish-help fish-waiting-note">
+                                    {isAITurn
+                                        ? `🤖 ${currentPlayer.name} is thinking…`
+                                        : `⏳ Waiting for ${currentPlayer.name} to play…`}
                                 </p>
                             )}
                         </>
