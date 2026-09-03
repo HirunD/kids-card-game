@@ -70,22 +70,3 @@ on refresh.
 Each player only sees their own hand; when it isn't your turn the board shows
 “Waiting for …”. The host must keep their tab open for the game to continue (a
 refresh recovers automatically; fully closing the tab ends the game).
-
-## Ads
-
-There's a single slim banner (`src/components/AdBar`) pinned to the bottom of the
-screen. It stays out of the way: full-height screens get a matching
-`padding-bottom`, and it never covers gameplay.
-
-- Nothing loads until you set `VITE_ADSENSE_CLIENT` and `VITE_ADSENSE_SLOT`
-  (see `.env.example`). During `npm start` with no config you get a grey "Ad"
-  placeholder so you can see the layout.
-- Values come from a Google AdSense account once your deployed site is approved:
-  create a **Display** ad unit, then copy the publisher id (`ca-pub-…`) and the
-  unit's slot id.
-- Add the same two vars in your Vercel / Netlify project settings.
-- Heads up: AdSense treats "made for kids" content specially — personalized ads
-  are turned off for it and approval can be stricter. Worth checking their
-  policy before you lean on it for revenue.
-
-To remove ads entirely, delete the `<AdBar />` line in `src/main.jsx`.
